@@ -7,6 +7,10 @@ COPY tsconfig.json ./
 COPY src ./src
 COPY tests ./tests
 COPY scripts ./scripts
+COPY client ./client
+COPY START-HERE.md ./
+COPY docs/INTEGRATOR.md docs/OPERATOR.md docs/OPERATIONS.md ./docs/
+COPY deploy ./deploy
 RUN pnpm build
 ENV HOST=0.0.0.0 DELIVERY_DATA=/data
 EXPOSE 3100

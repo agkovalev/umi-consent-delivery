@@ -2,6 +2,8 @@
 
 ## 0.1.0 — local pilot
 
+- Added production Compose, Nginx/HTTPS configuration and a verified migration runbook for cookie1.ru.
+- Added scheduled offsite backup and weekly restore-drill units with bounded retention.
 - Added reproducible shared-hosting client ZIP, checksums and integrator/operator guides; CI tests the extracted package.
 - Added CLI hosting diagnostics with optional signed-manifest checks that do not change client state.
 - Added verified online SQLite backups and restore into a new directory.

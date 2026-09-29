@@ -1,0 +1,10 @@
+[Unit]
+Description=Back up umi-consent-delivery and transfer a verified copy offsite
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/umi-consent-delivery
+ExecStart=/opt/umi-consent-delivery/deploy/backup.sh

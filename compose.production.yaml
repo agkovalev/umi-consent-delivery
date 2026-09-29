@@ -1,0 +1,25 @@
+name: umi-consent-delivery-production
+
+services:
+  delivery:
+    build: .
+    image: umi-consent-delivery:0.1.0
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 1.0
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - /srv/umi-consent-delivery/data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3100/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s

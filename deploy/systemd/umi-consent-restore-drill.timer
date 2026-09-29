@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly umi-consent-delivery restore drill
+
+[Timer]
+OnCalendar=weekly
+Persistent=true
+RandomizedDelaySec=30m
+Unit=umi-consent-restore-drill.service
+
+[Install]
+WantedBy=timers.target

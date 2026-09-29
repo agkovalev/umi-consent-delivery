@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily umi-consent-delivery backup
+
+[Timer]
+OnCalendar=*-*-* 03:15:00 UTC
+Persistent=true
+RandomizedDelaySec=10m
+Unit=umi-consent-backup.service
+
+[Install]
+WantedBy=timers.target

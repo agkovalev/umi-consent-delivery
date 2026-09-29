@@ -65,6 +65,8 @@ try {
     list($code,$output)=doctorRun(array($configFile));ensure($code===1,'doctor refuses invalid PEM');
     $bad=$config;$bad['assetDir']=$root.'/missing-parent/assets';file_put_contents($configFile,json_encode($bad));
     list($code,$output)=doctorRun(array($configFile));ensure($code===1 && !file_exists($root.'/missing-parent'),'doctor missing parent leaves no directories');
+    $bad=$config;$bad['assetDir']='/etc/consent-doctor-forbidden';file_put_contents($configFile,json_encode($bad));
+    list($code,$output)=doctorRun(array($configFile),'-d open_basedir=/app/client:/tmp');ensure($code===1 && strpos($output,'FAIL')!==false,'doctor open_basedir restriction');
     $bad=$config;$bad['baseUrl']='https://127.0.0.1:3199';file_put_contents($configFile,json_encode($bad));
     list($code,$output)=doctorRun(array($configFile,'--online'));ensure($code===1 && strpos($output,'TLS')!==false,'doctor TLS failure');
     file_put_contents($configFile,json_encode($config));chmod($configFile,0644);

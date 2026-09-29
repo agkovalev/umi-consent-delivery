@@ -11,5 +11,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm audit --audit-level high
+      - run: pnpm client:archive
+      - run: |
+          cd release
+          sha256sum -c *.zip.sha256
+      - run: |
+          mkdir -p .local/client-smoke
+          unzip -q release/*.zip -d .local/client-smoke
+          mv .local/client-smoke/umi-consent-delivery-client-* .local/client-smoke/client
       - run: docker build -f docker/php.Dockerfile -t delivery-php-test .
-      - run: docker run --rm -v "$PWD/client:/app/client:ro" -v "$PWD/tests:/app/tests:ro" delivery-php-test php /app/tests/client-test.php
+      - run: docker run --rm --network none -v "$PWD/.local/client-smoke/client:/app/client:ro" -v "$PWD/tests:/app/tests:ro" delivery-php-test php /app/tests/client-test.php
+      - run: docker build -t delivery-installer-server .
+      - run: PHP_TEST_IMAGE=delivery-php-test DELIVERY_TEST_IMAGE=delivery-installer-server pnpm test:installer

@@ -2,6 +2,7 @@
 
 ## 0.1.0 — local pilot
 
+- Added reproducible shared-hosting client ZIP, checksums and integrator/operator guides; CI tests the extracted package.
 - Added CLI hosting diagnostics with optional signed-manifest checks that do not change client state.
 - Added verified online SQLite backups and restore into a new directory.
 - Added global/per-installation request limits with Retry-After and Docker resource/log bounds.

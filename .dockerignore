@@ -3,4 +3,5 @@ node_modules
 .pnpm-store
 build
 .local
+release
 *.pem

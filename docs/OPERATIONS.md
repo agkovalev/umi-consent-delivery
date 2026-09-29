@@ -4,6 +4,14 @@
 
 После `pnpm build` команды выполняются на хосте из корня репозитория:
 
+**Docker Desktop:** перед этими host-командами остановите API через
+`docker compose stop delivery`, после завершения — `docker compose start delivery`
+и проверьте health. Не открывайте живую WAL-базу одновременно из macOS и контейнера:
+изменения могут быть не видны другой среде. Для онлайн-копирования процесс backup
+должен работать в той же ОС, что и SQLite-сервис. Для сервера Node.js без Docker
+в одной ОС следующие команды допускают работающий API. Остановка API не влияет
+на уже установленные JS/CSS сайтов.
+
 ```sh
 pnpm ops backup .local/service .local/backup-2026-09-29-ops .local/pilot/private/public.pem
 pnpm ops verify .local/backup-2026-09-29-ops .local/pilot/private/public.pem

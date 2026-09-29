@@ -29,6 +29,50 @@ try {
     expectFailure(function()use($config){new UmiDeliveryUpdater($config);},'concurrent updater refused');
     ensure($client->install()==='0.5.0','install initial release');$client->activate('0.5.0');
     file_put_contents($root.'/target','0.6.0');
+    // Run the real CLI doctor while an updater holds its lock. It must not
+    // acquire that lock or mutate either version marker, even in online mode.
+    $configFile=$root.'/config.json';file_put_contents($configFile,json_encode($config));chmod($configFile,0600);
+    function doctorRun($arguments,$phpFlags='') {
+        $command=escapeshellarg(PHP_BINARY).' '.$phpFlags.' /app/client/doctor.php';
+        foreach($arguments as $argument)$command.=' '.escapeshellarg($argument);
+        $process=proc_open($command,array(0=>array('pipe','r'),1=>array('pipe','w'),2=>array('pipe','w')),$pipes);
+        fclose($pipes[0]);$output=stream_get_contents($pipes[1]).stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);
+        return array(proc_close($process),$output);
+    }
+    function stateSnapshot($root) {
+        $out=array();foreach(glob($root.'/state/*') as $path)$out[basename($path)]=hash_file('sha256',$path);return $out;
+    }
+    $before=stateSnapshot($root);
+    list($code,$output)=doctorRun(array());ensure($code===0,'doctor runtime checks');
+    list($code,$output)=doctorRun(array(),'-d disable_functions=curl_init');ensure($code===1 && strpos($output,'FAIL')!==false,'doctor disabled function');
+    list($code,$output)=doctorRun(array($configFile,'--online','--web-root',$root.'/assets'));
+    ensure($code===0 && strpos($output,'0.6.0')!==false,'doctor signed online offer');
+    ensure(strpos($output,$token)===false,'doctor does not disclose token');
+    ensure(stateSnapshot($root)===$before,'doctor leaves version state and lock unchanged');
+    ensure(count(glob($root.'/state/.consent-doctor-*'))===0 && count(glob($root.'/assets/.consent-doctor-*'))===0,'doctor cleans temporary files');
+    foreach(array('forbidden'=>'403','rate-limited'=>'429','redirect'=>'HTTP','bad-signature'=>'FAIL') as $mode=>$expected) {
+        file_put_contents($root.'/mode',$mode);list($code,$output)=doctorRun(array($configFile,'--online'));
+        ensure($code===1 && strpos($output,$expected)!==false && strpos($output,$token)===false,'doctor diagnoses '.$mode);
+    }
+    file_put_contents($root.'/mode','ok');
+    $bad=$config;$bad['token']=str_repeat('0',64);file_put_contents($configFile,json_encode($bad));
+    list($code,$output)=doctorRun(array($configFile,'--online'));ensure($code===1 && strpos($output,'401')!==false,'doctor diagnoses unauthorized');
+    $bad=$config;$bad['token']='REPLACE_WITH_SITE_TOKEN';file_put_contents($configFile,json_encode($bad));
+    list($code,$output)=doctorRun(array($configFile));ensure($code===1,'doctor refuses placeholders');
+    $bad=$config;$bad['stateDir']=$config['assetDir'].'/state';file_put_contents($configFile,json_encode($bad));
+    list($code,$output)=doctorRun(array($configFile));ensure($code===1,'doctor refuses nested state');
+    $bad=$config;$bad['publicKey']=$root.'/invalid.pem';file_put_contents($root.'/invalid.pem','invalid');file_put_contents($configFile,json_encode($bad));
+    list($code,$output)=doctorRun(array($configFile));ensure($code===1,'doctor refuses invalid PEM');
+    $bad=$config;$bad['assetDir']=$root.'/missing-parent/assets';file_put_contents($configFile,json_encode($bad));
+    list($code,$output)=doctorRun(array($configFile));ensure($code===1 && !file_exists($root.'/missing-parent'),'doctor missing parent leaves no directories');
+    $bad=$config;$bad['assetDir']='/etc/consent-doctor-forbidden';file_put_contents($configFile,json_encode($bad));
+    list($code,$output)=doctorRun(array($configFile),'-d open_basedir=/app/client:/tmp');ensure($code===1 && strpos($output,'FAIL')!==false,'doctor open_basedir restriction');
+    $bad=$config;$bad['baseUrl']='https://127.0.0.1:3199';file_put_contents($configFile,json_encode($bad));
+    list($code,$output)=doctorRun(array($configFile,'--online'));ensure($code===1 && strpos($output,'TLS')!==false,'doctor TLS failure');
+    file_put_contents($configFile,json_encode($config));chmod($configFile,0644);
+    list($code,$output)=doctorRun(array($configFile));ensure($code===1,'doctor refuses public config permissions');chmod($configFile,0600);
+    list($code,$output)=doctorRun(array($configFile,'--web-root',$root));ensure($code===1,'doctor refuses secrets under web root');
+    ensure(stateSnapshot($root)===$before,'failed diagnostics leave state unchanged');
     foreach(array('bad-signature','bad-file','partial','redirect','unavailable','rate-limited','file-rate-limited') as $mode) {
         file_put_contents($root.'/mode',$mode);
         expectFailure(function()use($client){$client->install();},$mode.' refused');

@@ -2,6 +2,7 @@ node_modules/
 .pnpm-store/
 build/
 .local/
+release/
 *.pem
 *.sqlite*
 .DS_Store

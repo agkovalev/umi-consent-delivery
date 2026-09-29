@@ -2,6 +2,7 @@
 $root=getenv('TEST_ROOT');
 if(($_SERVER['HTTP_AUTHORIZATION']??'')!=='Bearer '.file_get_contents($root.'/token')){http_response_code(401);exit;}
 $mode=trim(file_get_contents($root.'/mode'));$target=trim(file_get_contents($root.'/target'));
+if($mode==='forbidden'){http_response_code(403);exit;}
 if($mode==='unavailable'){http_response_code(503);exit;}
 if($mode==='rate-limited' || ($mode==='file-rate-limited' && $_SERVER['REQUEST_URI']!=='/v1/manifest')){http_response_code(429);header('Retry-After: 60');exit;}
 if($mode==='redirect'){header('Location: http://127.0.0.1:3199/other');exit;}

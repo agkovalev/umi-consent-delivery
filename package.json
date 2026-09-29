@@ -12,6 +12,8 @@
     "start": "node build/src/server.js",
     "admin": "node build/src/cli.js",
     "ops": "node build/src/operations.js",
+    "client:archive": "pnpm build && node build/scripts/client-archive.js",
+    "test:installer": "node tests/installer-e2e.mjs",
     "test": "node --test build/tests/*.test.js",
     "check": "pnpm build && pnpm test",
     "pilot:prepare": "node build/scripts/pilot.js",

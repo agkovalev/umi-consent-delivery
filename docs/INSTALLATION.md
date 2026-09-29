@@ -1,5 +1,22 @@
 # PHP-клиент
 
+Пошаговое руководство: [интегратору сайта](INTEGRATOR.md).
+
+## Диагностика без установки
+
+```sh
+php doctor.php
+php doctor.php /srv/site-private/config.json --web-root /srv/site/public
+php doctor.php /srv/site-private/config.json --web-root /srv/site/public --online
+```
+
+Проверяет runtime, конфиг, пути, запись/lock/rename во временных файлах и, с
+`--online`, доступ и подпись манифеста. Не создаёт state/assets, не меняет active/highest
+и не блокирует updater. Без web-root расположение секретов требует ручной проверки.
+WARN не меняет exit code, FAIL даёт 1. Токен в диагностике не выводится.
+
+## Установка
+
 Требования: PHP CLI 7.3+, cURL, OpenSSL, исходящий HTTPS, запись в отдельный каталог assets и приватный каталог состояния. Установщик и конфиг располагаются вне web root. PHP 7.3 поддерживается для совместимости со старыми сайтами; образ пилота не является рекомендацией production-хостинга.
 
 Конфиг JSON с правами 0600:

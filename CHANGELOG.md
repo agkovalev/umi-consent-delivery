@@ -5,6 +5,7 @@
 - Added production Compose, Nginx/HTTPS configuration and a verified migration runbook for cookie1.ru.
 - Added a containerized production operations runner so the VPS can keep its existing Node.js runtime and sites.
 - Added scheduled offsite backup and weekly restore-drill units with bounded retention.
+- Added local-only backup mode and a scoped Nginx reload hook for renewed cookie1.ru certificates.
 - Added reproducible shared-hosting client ZIP, checksums and integrator/operator guides; CI tests the extracted package.
 - Added CLI hosting diagnostics with optional signed-manifest checks that do not change client state.
 - Added verified online SQLite backups and restore into a new directory.

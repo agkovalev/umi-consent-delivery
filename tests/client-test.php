@@ -29,7 +29,7 @@ try {
     expectFailure(function()use($config){new UmiDeliveryUpdater($config);},'concurrent updater refused');
     ensure($client->install()==='0.5.0','install initial release');$client->activate('0.5.0');
     file_put_contents($root.'/target','0.6.0');
-    foreach(array('bad-signature','bad-file','partial','redirect','unavailable') as $mode) {
+    foreach(array('bad-signature','bad-file','partial','redirect','unavailable','rate-limited','file-rate-limited') as $mode) {
         file_put_contents($root.'/mode',$mode);
         expectFailure(function()use($client){$client->install();},$mode.' refused');
         ensure(file_get_contents($root.'/state/active-version')==='0.5.0','active version preserved');

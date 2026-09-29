@@ -3,16 +3,21 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Store, digest, versionPattern } from './store.js';
 import { files, type Envelope, type Manifest } from './releases.js';
+import { RequestLimits } from './limits.js';
 
-export function buildApp(store: Store, logger = false) {
+export function buildApp(store: Store, logger = false, limits = new RequestLimits()) {
   const app = Fastify({logger:logger ? {redact:['req.headers.authorization'],serializers:{req(req){return {method:req.method,url:req.url?.split('?')[0],remoteAddress:req.ip};}}} : false, bodyLimit:1024, requestTimeout:10000});
   app.decorateRequest('site', null);
   app.addHook('onRequest',async (req,reply) => {
     reply.header('Cache-Control','private, no-store').header('X-Content-Type-Options','nosniff');
     if (req.url.split('?')[0] === '/health') return;
+    const globalWait = limits.global();
+    if (globalWait) return reply.code(429).header('Retry-After', globalWait).send({error:'Too many requests'});
     const auth = req.headers.authorization;
     const site = typeof auth === 'string' && auth.startsWith('Bearer ') ? store.authenticate(auth.slice(7)) : undefined;
     if (!site) return reply.code(401).send({error:'Unauthorized'});
+    const siteWait = limits.site(site.id);
+    if (siteWait) return reply.code(429).header('Retry-After', siteWait).send({error:'Too many requests'});
     req.site = site;
   });
   app.get('/health',async () => ({ok:true}));

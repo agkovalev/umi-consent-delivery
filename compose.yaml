@@ -2,6 +2,15 @@ name: umi-consent-delivery
 services:
   delivery:
     build: .
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 1.0
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "127.0.0.1:3100:3100"
       - "127.0.0.1:8088:8080"

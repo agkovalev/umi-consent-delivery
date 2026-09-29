@@ -2,6 +2,11 @@
 
 `pnpm check` компилирует TypeScript и выполняет node:test через настоящий SQLite и Fastify inject. Покрывает API-доступ, разделение разрешений сайтов, ротацию/отзыв, точность выдачи, повреждение файлов и отказ импорта некорректного ZIP.
 
+Также проверяются backup/restore WAL-базы с сохранением прав и журнала, повреждённые
+копии, неверные подписи, symlink, запрет перезаписи; общий и site rate limit,
+Retry-After, сброс окна и независимость от X-Forwarded-For.
+PHP fixture включает HTTP 429 отдельно на манифесте и файле.
+
 ```sh
 docker compose build
 docker compose exec -T site php /app/tests/client-test.php

@@ -11,6 +11,7 @@
     "build": "tsc",
     "start": "node build/src/server.js",
     "admin": "node build/src/cli.js",
+    "ops": "node build/src/operations.js",
     "test": "node --test build/tests/*.test.js",
     "check": "pnpm build && pnpm test",
     "pilot:prepare": "node build/scripts/pilot.js",

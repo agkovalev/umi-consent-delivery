@@ -2,6 +2,8 @@
 
 ## 0.1.0 — local pilot
 
+- Added verified online SQLite backups and restore into a new directory.
+- Added global/per-installation request limits with Retry-After and Docker resource/log bounds.
 - Added umidev2 regression coverage for disabled legacy widgets across consent choices and withdrawal.
 - Verified HTTPS delivery to the umidev2 UMI.CMS installation; added configurable site browser smoke tests.
 - Authenticated per-installation release delivery with manual grants and key revocation/rotation.

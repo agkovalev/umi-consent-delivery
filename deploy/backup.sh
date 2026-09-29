@@ -19,7 +19,8 @@ BACKUP_KEEP_DAILY=${BACKUP_KEEP_DAILY:-14}
 [[ "$BACKUP_SSH_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9._@-]*$ ]] || { echo "Invalid SSH host" >&2; exit 1; }
 [[ "$BACKUP_REMOTE_DIR" =~ ^/[a-zA-Z0-9._/-]+$ && "$BACKUP_REMOTE_DIR" != / && "$BACKUP_REMOTE_DIR" != *..* ]] || { echo "Invalid remote directory" >&2; exit 1; }
 [[ "$BACKUP_KEEP_DAILY" =~ ^[0-9]+$ ]] && (( BACKUP_KEEP_DAILY >= 1 && BACKUP_KEEP_DAILY <= 365 )) || { echo "Invalid retention" >&2; exit 1; }
-[[ -f "$BACKUP_REPO_ROOT/build/src/operations.js" && -f "$BACKUP_PUBLIC_KEY" ]] || { echo "Operations build or public key is missing" >&2; exit 1; }
+[[ -x "$BACKUP_REPO_ROOT/deploy/ops.sh" && -f "$BACKUP_PUBLIC_KEY" ]] || { echo "Operations runner or public key is missing" >&2; exit 1; }
+[[ "$BACKUP_DATA_DIR" == /srv/umi-consent-delivery/* && "$BACKUP_ROOT" == /srv/umi-consent-delivery/* && "$BACKUP_PUBLIC_KEY" == /etc/umi-consent-delivery/public.pem ]] || { echo "Backup paths are outside production mounts" >&2; exit 1; }
 
 snapshots="$BACKUP_ROOT/snapshots"
 archives="$BACKUP_ROOT/archives"
@@ -32,8 +33,8 @@ snapshot="$snapshots/$stamp"
 archive="$archives/$stamp.tar.gz"
 [[ ! -e "$snapshot" && ! -e "$archive" ]] || { echo "Backup name already exists" >&2; exit 1; }
 
-node "$BACKUP_REPO_ROOT/build/src/operations.js" backup "$BACKUP_DATA_DIR" "$snapshot" "$BACKUP_PUBLIC_KEY"
-node "$BACKUP_REPO_ROOT/build/src/operations.js" verify "$snapshot" "$BACKUP_PUBLIC_KEY"
+"$BACKUP_REPO_ROOT/deploy/ops.sh" backup "$BACKUP_DATA_DIR" "$snapshot" "$BACKUP_PUBLIC_KEY"
+"$BACKUP_REPO_ROOT/deploy/ops.sh" verify "$snapshot" "$BACKUP_PUBLIC_KEY"
 tar -C "$snapshots" -czf "$archive" "$stamp"
 (cd "$archives" && sha256sum "$stamp.tar.gz" > "$stamp.tar.gz.sha256")
 

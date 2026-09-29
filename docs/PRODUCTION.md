@@ -1,14 +1,15 @@
 # Production: cookie1.ru
 
-Эта инструкция переносит **существующий** локальный реестр на Ubuntu VPS,
-выделенный под cookie1.ru.
+Эта инструкция переносит **существующий** локальный реестр на Ubuntu VPS
+195.161.114.25, где уже работают Nginx и другие сайты. Для `cookie1.ru` создаётся
+отдельный virtual host; конфигурации Strapi и остальных сайтов сохраняются.
 Браузеры продолжают получать JS/CSS с сайтов; `https://cookie1.ru` нужен PHP-клиенту
 для ручной установки одобренных версий. `cookie1.ru` целиком выделен под API.
 
-**Перед любыми изменениями VPS подтвердите цель:** 2026-09-29 публичный DNS
-`cookie1.ru` указывал на 195.161.114.25; HTTPS отвечал Nginx/Strapi с признаками
-другого приложения и истёкшим сертификатом. Не заменяйте его конфигурацию, пока
-владелец не подтвердит, что это нужный сервер и текущий сайт можно убрать.
+Владелец подтвердил, что существующие сайты VPS надо сохранить. 2026-09-29
+публичный DNS `cookie1.ru` указывал на этот VPS, но Nginx не имел отдельного
+`server_name cookie1.ru`: запросы попадали в чужой default vhost с просроченным
+сертификатом. Для нового vhost нужен собственный доверенный сертификат.
 
 ## 1. Зафиксировать исходный код и подготовить VPS
 
@@ -18,32 +19,24 @@
 и PHP container tests по [руководству проверок](TESTING.md). Не копируйте `.local`
 через Git и не запускайте `pnpm pilot:prepare` на VPS.
 
-На VPS нужны Docker Engine с Compose plugin, Nginx, Certbot, rsync, OpenSSH client,
-`flock` (util-linux), Python 3, `build-essential` для native SQLite-модуля,
-Node.js 22.22.2+ и закреплённый pnpm 11.22.0 через Corepack.
-Устанавливайте Docker по [официальной инструкции для Ubuntu](https://docs.docker.com/engine/install/ubuntu/),
-Certbot — по [официальной инструкции для Nginx](https://certbot.eff.org/instructions?os=snap&ws=nginx).
-Проверьте `docker compose version`, `node --version`, `corepack pnpm --version`.
-Разместите проверенный исходный код в `/opt/umi-consent-delivery` и выполните:
+На VPS уже есть Docker Engine с Compose, Nginx и Certbot. Проверьте наличие
+`rsync`, OpenSSH client, `flock` (util-linux), Python 3. Host Node.js 18 не
+заменяйте: сервис и операции запускаются в образе с Node.js 22.23.1. Разместите
+проверенный исходный код в `/opt/umi-consent-delivery` и выполните:
 
 ```sh
 cd /opt/umi-consent-delivery
-corepack enable
-corepack pnpm install --frozen-lockfile
-corepack pnpm check
 docker compose -f compose.production.yaml config --services
 docker compose -f compose.production.yaml build delivery
+docker run --rm --network none umi-consent-delivery:0.1.0 pnpm check
 ```
 
 В списке Compose должен быть **только** `delivery`. Убедитесь, что порт 3100 свободен
 и доступен только на loopback. Не запускайте рядом `compose.yaml`: он предназначен
 для локального пилота и публикует дополнительный порт 8088.
 
-DNS-запись A `cookie1.ru` должна указывать на IPv4 VPS. Конфигурация Nginx слушает
-только IPv4; не публикуйте AAAA, пока не настроена отдельная проверенная IPv6-доставка.
-До включения UFW разрешите
-фактический SSH-порт, затем 80/443; проверьте вход во второй SSH-сессии, чтобы не
-потерять доступ. Порт 3100 снаружи не открывайте.
+DNS A `cookie1.ru` уже указывает на VPS. Другие DNS-записи, vhost и firewall
+правила не меняйте. Порт 3100 снаружи не открывайте.
 
 ## 2. Снять свежую копию работающего пилота
 
@@ -80,18 +73,20 @@ openssl pkey -in /etc/umi-consent-delivery/signing.pem -pubout -outform PEM | sh
 sha256sum /etc/umi-consent-delivery/public.pem
 ```
 
-Хеши должны совпасть. Затем из корня проверенного кода восстановите снимок:
+Хеши должны совпасть. Затем из корня проверенного кода восстановите снимок через
+одноразовый контейнер с тем же Node/SQLite, что у API:
 
 ```sh
-corepack pnpm ops verify /srv/umi-consent-delivery/migration/SNAPSHOT /etc/umi-consent-delivery/public.pem
-corepack pnpm ops restore /srv/umi-consent-delivery/migration/SNAPSHOT /srv/umi-consent-delivery/data /etc/umi-consent-delivery/public.pem
-corepack pnpm ops verify /srv/umi-consent-delivery/data /etc/umi-consent-delivery/public.pem
+deploy/ops.sh verify /srv/umi-consent-delivery/migration/SNAPSHOT /etc/umi-consent-delivery/public.pem
+deploy/ops.sh restore /srv/umi-consent-delivery/migration/SNAPSHOT /srv/umi-consent-delivery/data /etc/umi-consent-delivery/public.pem
+deploy/ops.sh verify /srv/umi-consent-delivery/data /etc/umi-consent-delivery/public.pem
 ```
 
 `SNAPSHOT` — имя переданного каталога; `/srv/umi-consent-delivery/data` до restore
 **не существует**. Родительский каталог существует и имеет права 0700. Restore
 откажется перезаписать даже пустой каталог. Сверьте число релизов и установок со
-снимком, затем проверьте `DELIVERY_DATA=/srv/umi-consent-delivery/data corepack pnpm admin sites`.
+снимком, затем проверьте
+`docker run --rm --network none -e DELIVERY_DATA=/data --mount type=bind,source=/srv/umi-consent-delivery/data,target=/data umi-consent-delivery:0.1.0 node build/src/cli.js sites`.
 Ключи установок при этой проверке не выводятся.
 
 ## 3. Поднять API и HTTPS
@@ -107,7 +102,10 @@ Compose монтирует только каталог данных в `/data`, 
 `127.0.0.1`, сохраняет ограничения RAM/CPU/PID и ротацию журналов. Закрытый ключ
 в контейнер не монтируется.
 
-Для сертификата используйте HTTP webroot, чтобы продление не останавливало Nginx:
+Сначала проверьте `nginx -T`, что у `cookie1.ru` нет отдельного `server_name`, а
+порт 80 доступен. Сохраните root-only копию действующей конфигурации Nginx перед
+добавлением **нового** vhost. Не удаляйте и не правьте существующие сайты. Для
+сертификата используйте HTTP webroot, чтобы продление не останавливало Nginx:
 
 ```sh
 sudo install -d -m 0755 /var/www/letsencrypt/.well-known/acme-challenge
@@ -123,10 +121,9 @@ sudo systemctl reload nginx
 sudo certbot renew --dry-run
 ```
 
-На подтверждённом выделенном VPS удалите дистрибутивный default-site из
-`sites-enabled` перед проверкой, если он конфликтует с `cookie1.ru`. Nginx
-проксирует только `/health` и `/v1/*`, задаёт
-per-IP лимит на все HTTPS-запросы и отвечает 404 на остальные пути. Он передаёт
+Новый vhost перехватывает только Host `cookie1.ru` и проксирует `/health` и `/v1/*`.
+Другие vhost, включая Strapi, сохраняются без правок. На `/v1/*` Nginx задаёт
+per-IP лимит и отвечает 404 на остальные пути. Он передаёт
 `Authorization` серверу; access log записывает путь без query string и без токена.
 Лимит Nginx дополняет лимиты приложения и не является DDoS-защитой.
 
@@ -138,8 +135,11 @@ curl -sS -o /dev/null -w '%{http_code}\n' https://cookie1.ru/v1/manifest
 curl -sS -o /dev/null -w '%{http_code}\n' https://cookie1.ru/
 ```
 
-Ожидаются `{"ok":true}`, `401` и `404`. Не вставляйте токен установки в командную
-строку или URL для диагностики. На тестовом сайте поменяйте **только** приватное
+Ожидаются `{"ok":true}`, `401` и `404`. Отдельно сравните ответы существующих
+доменов VPS до/после изменения Nginx. Не вставляйте токен установки в командную
+строку или URL для диагностики. У `umidev2` сейчас старый клиент без `doctor.php`:
+обновите его приватные `updater.php` и `doctor.php` из проверенного ZIP v0.1.0,
+сохранив `config.json`, state и активные assets. Затем поменяйте **только** приватное
 `baseUrl` на `https://cookie1.ru` и выполните `doctor.php --online --web-root ...`.
 Проверка должна получить подписанный манифест без FAIL. Начните с `umidev2`, затем
 переключайте другие установки. Не меняйте `window.UmiConsentConfig` и `revision`.
@@ -189,11 +189,12 @@ production-приёмку завершённой. Проверяйте срок 
 ## 6. Следующие релизы и откат
 
 Подписывать новый релиз нужно только проверенным ZIP библиотеки и его SHA-256
-sidecar. На Linux-хосте можно импортировать с `DELIVERY_DATA` работающего API:
+sidecar. Для импорта используйте **отдельный** контейнер: ключ монтируется только
+в него, не в постоянно работающий API.
 
 ```sh
 cd /opt/umi-consent-delivery
-DELIVERY_DATA=/srv/umi-consent-delivery/data corepack pnpm admin import VERSION /private/imports/umi-cookie-consent-vVERSION.zip /private/imports/umi-cookie-consent-vVERSION.zip.sha256 /etc/umi-consent-delivery/signing.pem
+docker run --rm --network none -e DELIVERY_DATA=/data --mount type=bind,source=/srv/umi-consent-delivery/data,target=/data --mount type=bind,source=/srv/umi-consent-delivery/imports,target=/imports,readonly --mount type=bind,source=/etc/umi-consent-delivery/signing.pem,target=/run/signing.pem,readonly umi-consent-delivery:0.1.0 node build/src/cli.js import VERSION /imports/umi-cookie-consent-vVERSION.zip /imports/umi-cookie-consent-vVERSION.zip.sha256 /run/signing.pem
 docker compose -f compose.production.yaml exec -T delivery node build/src/cli.js approve SITE_ID VERSION
 ```
 

@@ -13,7 +13,8 @@ BACKUP_ROOT=${BACKUP_ROOT:-/srv/umi-consent-delivery/backups}
 BACKUP_PUBLIC_KEY=${BACKUP_PUBLIC_KEY:-/etc/umi-consent-delivery/public.pem}
 [[ "$BACKUP_SSH_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9._@-]*$ ]] || { echo "Invalid SSH host" >&2; exit 1; }
 [[ "$BACKUP_REMOTE_DIR" =~ ^/[a-zA-Z0-9._/-]+$ && "$BACKUP_REMOTE_DIR" != / && "$BACKUP_REMOTE_DIR" != *..* ]] || { echo "Invalid remote directory" >&2; exit 1; }
-[[ -f "$BACKUP_REPO_ROOT/build/src/operations.js" && -f "$BACKUP_PUBLIC_KEY" ]] || { echo "Operations build or public key is missing" >&2; exit 1; }
+[[ -x "$BACKUP_REPO_ROOT/deploy/ops.sh" && -f "$BACKUP_PUBLIC_KEY" ]] || { echo "Operations runner or public key is missing" >&2; exit 1; }
+[[ "$BACKUP_ROOT" == /srv/umi-consent-delivery/* && "$BACKUP_PUBLIC_KEY" == /etc/umi-consent-delivery/public.pem ]] || { echo "Backup paths are outside production mounts" >&2; exit 1; }
 
 mkdir -p "$BACKUP_ROOT/drills"
 exec 9>"$BACKUP_ROOT/.backup.lock"
@@ -36,9 +37,9 @@ rsync -a -e 'ssh -o BatchMode=yes -o StrictHostKeyChecking=yes' -- "$BACKUP_SSH_
 cmp "$BACKUP_ROOT/archives/$stamp.tar.gz.sha256" "$download/$stamp.tar.gz.sha256"
 (cd "$download" && sha256sum -c "$stamp.tar.gz.sha256")
 python3 "$BACKUP_REPO_ROOT/deploy/extract-snapshot.py" "$download/$stamp.tar.gz" "$download/extracted" "$stamp"
-node "$BACKUP_REPO_ROOT/build/src/operations.js" verify "$download/extracted/$stamp" "$BACKUP_PUBLIC_KEY"
-node "$BACKUP_REPO_ROOT/build/src/operations.js" restore "$download/extracted/$stamp" "$drill" "$BACKUP_PUBLIC_KEY"
-node "$BACKUP_REPO_ROOT/build/src/operations.js" verify "$drill" "$BACKUP_PUBLIC_KEY"
+"$BACKUP_REPO_ROOT/deploy/ops.sh" verify "$download/extracted/$stamp" "$BACKUP_PUBLIC_KEY"
+"$BACKUP_REPO_ROOT/deploy/ops.sh" restore "$download/extracted/$stamp" "$drill" "$BACKUP_PUBLIC_KEY"
+"$BACKUP_REPO_ROOT/deploy/ops.sh" verify "$drill" "$BACKUP_PUBLIC_KEY"
 
 mapfile -t drills < <(find "$BACKUP_ROOT/drills" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -r)
 for ((i=4; i<${#drills[@]}; i++)); do

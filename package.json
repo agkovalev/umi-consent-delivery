@@ -14,7 +14,8 @@
     "test": "node --test build/tests/*.test.js",
     "check": "pnpm build && pnpm test",
     "pilot:prepare": "node build/scripts/pilot.js",
-    "test:browser": "node tests/browser.mjs"
+    "test:browser": "node tests/browser.mjs",
+    "test:site": "node tests/site.mjs"
   },
   "dependencies": {
     "better-sqlite3": "13.0.3",

@@ -1,0 +1,8 @@
+[Unit]
+Description=Verify restoration of umi-consent-delivery snapshot
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/umi-consent-delivery
+ExecStart=/opt/umi-consent-delivery/deploy/restore-drill.sh

@@ -1,0 +1,17 @@
+# Changelog
+
+## 0.1.0 — local pilot
+
+- Added production Compose, Nginx/HTTPS configuration and a verified migration runbook for cookie1.ru.
+- Added a containerized production operations runner so the VPS can keep its existing Node.js runtime and sites.
+- Added scheduled offsite backup and weekly restore-drill units with bounded retention.
+- Added reproducible shared-hosting client ZIP, checksums and integrator/operator guides; CI tests the extracted package.
+- Added CLI hosting diagnostics with optional signed-manifest checks that do not change client state.
+- Added verified online SQLite backups and restore into a new directory.
+- Added global/per-installation request limits with Retry-After and Docker resource/log bounds.
+- Added umidev2 regression coverage for disabled legacy widgets across consent choices and withdrawal.
+- Verified HTTPS delivery to the umidev2 UMI.CMS installation; added configurable site browser smoke tests.
+- Authenticated per-installation release delivery with manual grants and key revocation/rotation.
+- Immutable release import, offline RSA signatures and SHA-256 file verification.
+- PHP 7.3 CLI installation, explicit activation and local rollback.
+- Docker Compose pilot and Node/PHP security regression tests.

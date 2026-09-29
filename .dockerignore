@@ -1,0 +1,9 @@
+.git
+node_modules
+.pnpm-store
+build
+.local
+release
+*.pem
+__pycache__
+*.pyc

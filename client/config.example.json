@@ -1,0 +1,7 @@
+{
+  "baseUrl": "https://REPLACE_DELIVERY_HOST",
+  "token": "REPLACE_WITH_SITE_TOKEN",
+  "publicKey": "/REPLACE_HOME/consent-delivery/public.pem",
+  "stateDir": "/REPLACE_HOME/consent-delivery/state",
+  "assetDir": "/REPLACE_HOME/public_html/assets/umi-consent"
+}

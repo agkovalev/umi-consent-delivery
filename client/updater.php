@@ -6,7 +6,7 @@ final class UmiDeliveryUpdater
     private $lock;
     private $publicKey;
 
-    public function __construct(array $config)
+    public function __construct(array $config, $diagnostic = false)
     {
         foreach (array('baseUrl', 'token', 'publicKey', 'stateDir', 'assetDir') as $field) {
             if (!isset($config[$field]) || !is_string($config[$field]) || $config[$field] === '') throw new RuntimeException('Missing config: ' . $field);
@@ -22,6 +22,9 @@ final class UmiDeliveryUpdater
         $key = openssl_pkey_get_public($this->publicKey);
         $details = $key ? openssl_pkey_get_details($key) : false;
         if (!$details || $details['type'] !== OPENSSL_KEYTYPE_RSA || $details['bits'] < 3072) throw new RuntimeException('Invalid trusted RSA public key');
+        // Diagnostics may inspect the signed offer without creating directories,
+        // acquiring the updater lock or writing the highest/active version.
+        if ($diagnostic) return;
         $this->directory($config['stateDir'],0700);
         $this->directory($config['assetDir'],0755);
         $state = realpath($config['stateDir']); $assets = realpath($config['assetDir']);
@@ -79,6 +82,7 @@ final class UmiDeliveryUpdater
         return array($raw,$manifest);
     }
     public function check() { return $this->offered()[1]; }
+    public function probe() { return $this->verify($this->request('/v1/manifest',65536)); }
     private function validateInstalled($version)
     {
         if (!$this->validVersion($version)) throw new RuntimeException('Invalid version');

@@ -13,8 +13,7 @@
 
 ## 1. Зафиксировать исходный код и подготовить VPS
 
-Работайте с проверенным коммитом в `main`, а не с текущей удалённой `main`, пока
-туда не вошли MVP, shared-hosting installer и production-конфигурация. Запишите
+Работайте с проверенным опубликованным коммитом в `main`. Запишите
 полный SHA коммита, которым будет собран образ. Перед выпуском запустите `pnpm check`
 и PHP container tests по [руководству проверок](TESTING.md). Не копируйте `.local`
 через Git и не запускайте `pnpm pilot:prepare` на VPS.
@@ -105,7 +104,9 @@ Compose монтирует только каталог данных в `/data`, 
 Сначала проверьте `nginx -T`, что у `cookie1.ru` нет отдельного `server_name`, а
 порт 80 доступен. Сохраните root-only копию действующей конфигурации Nginx перед
 добавлением **нового** vhost. Не удаляйте и не правьте существующие сайты. Для
-сертификата используйте HTTP webroot, чтобы продление не останавливало Nginx:
+сертификата используйте HTTP webroot, чтобы продление не останавливало Nginx.
+Активный сертификат в панели домена Jino не появляется на VPS автоматически:
+проверяйте файлы в `/etc/letsencrypt/live/cookie1.ru` и публичный TLS отдельно.
 
 ```sh
 sudo install -d -m 0755 /var/www/letsencrypt/.well-known/acme-challenge
@@ -118,7 +119,9 @@ sudo certbot certonly --webroot -w /var/www/letsencrypt -d cookie1.ru
 sudo install -m 0644 deploy/nginx/cookie1.ru.conf /etc/nginx/sites-available/cookie1.ru
 sudo nginx -t
 sudo systemctl reload nginx
-sudo certbot renew --dry-run
+sudo install -m 0755 deploy/certbot-deploy-hook.sh /etc/letsencrypt/renewal-hooks/deploy/umi-consent-cookie1-nginx
+sudo certbot renew --dry-run --cert-name cookie1.ru
+sudo systemctl is-enabled certbot.timer
 ```
 
 Новый vhost перехватывает только Host `cookie1.ru` и проксирует `/health` и `/v1/*`.
@@ -137,8 +140,8 @@ curl -sS -o /dev/null -w '%{http_code}\n' https://cookie1.ru/
 
 Ожидаются `{"ok":true}`, `401` и `404`. Отдельно сравните ответы существующих
 доменов VPS до/после изменения Nginx. Не вставляйте токен установки в командную
-строку или URL для диагностики. У `umidev2` сейчас старый клиент без `doctor.php`:
-обновите его приватные `updater.php` и `doctor.php` из проверенного ZIP v0.1.0,
+строку или URL для диагностики. Если PHP-клиент ещё не содержит `doctor.php`,
+обновите его приватные PHP-файлы из проверенного ZIP v0.1.0,
 сохранив `config.json`, state и активные assets. Затем поменяйте **только** приватное
 `baseUrl` на `https://cookie1.ru` и выполните `doctor.php --online --web-root ...`.
 Проверка должна получить подписанный манифест без FAIL. Начните с `umidev2`, затем
@@ -152,11 +155,10 @@ curl -sS -o /dev/null -w '%{http_code}\n' https://cookie1.ru/
 
 ## 5. Ежедневные копии, восстановление и наблюдение
 
-Создайте на отдельном SSH-сервере с `rsync` и `sha256sum` **выделенный** каталог для этого сервиса
-и файл `.umi-consent-delivery-backups` внутри него. Настройте на VPS SSH alias
-с проверенным host key и ключом без интерактивного ввода. Проверка marker в скрипте
-не даст `rsync --delete` очистить ошибочно указанный каталог. Доступ к этому
-хранилищу должен быть ограничен: снимки содержат реестр, хеши токенов и журнал.
+Пока отдельный SSH-сервер не выбран, оставьте `BACKUP_SSH_HOST` и
+`BACKUP_REMOTE_DIR` пустыми: ежедневная задача создаёт и проверяет локальные
+снимки с ротацией 14 дней, еженедельная проверяет восстановление из архива в
+отдельный каталог. Это **не внешняя копия** и не защищает от потери VPS.
 
 ```sh
 sudo install -d -m 0700 /srv/umi-consent-delivery/backups /etc/umi-consent-delivery
@@ -170,13 +172,16 @@ sudo systemctl enable --now umi-consent-backup.timer umi-consent-restore-drill.t
 sudo systemctl list-timers 'umi-consent-*'
 ```
 
-Перед запуском задайте в `backup.env` действующие `BACKUP_SSH_HOST` и
-`BACKUP_REMOTE_DIR`; примерные значения не являются адресами вашего хранилища.
-Первый backup создаёт и проверяет snapshot, архивирует его, передаёт архив и
-checksum offsite, проверяет checksum там и сохраняет последние 14 ежедневных
-снимков в обоих местах. Еженедельное задание **скачивает внешнюю копию**,
-сверяет её с локальным checksum, безопасно распаковывает и проверяет
+Первый backup создаёт и проверяет snapshot, архивирует его и checksum.
+Еженедельное задание сверяет checksum, безопасно распаковывает архив и проверяет
 восстановление в отдельный каталог. Оно оставляет четыре последних результата.
+Когда появится отдельный сервер, создайте на нём с `rsync` и `sha256sum`
+**выделенный** каталог и файл `.umi-consent-delivery-backups` внутри него.
+Настройте на VPS SSH alias с проверенным host key и ключом без интерактивного
+ввода, затем задайте **оба** поля в `backup.env`. Проверка marker в скрипте не
+даст `rsync --delete` очистить ошибочно указанный каталог. После включения
+отправки проверьте архив и восстановление именно из внешней копии. Доступ к
+хранилищу должен быть ограничен: снимки содержат реестр, хеши токенов и журнал.
 Проверяйте журнал через
 `journalctl -u umi-consent-backup.service -u umi-consent-restore-drill.service`.
 Копию signing key храните отдельно от автоматических снимков.

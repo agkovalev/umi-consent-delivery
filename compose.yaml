@@ -1,0 +1,30 @@
+name: umi-consent-delivery
+services:
+  delivery:
+    build: .
+    ports:
+      - "127.0.0.1:3100:3100"
+      - "127.0.0.1:8088:8080"
+    volumes:
+      - ./.local/service:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3100/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+  site:
+    build:
+      context: .
+      dockerfile: docker/php.Dockerfile
+    # Shared loopback lets the client keep its HTTPS policy unchanged in the pilot.
+    network_mode: service:delivery
+    depends_on:
+      delivery:
+        condition: service_healthy
+    volumes:
+      - ./client:/app/client:ro
+      - ./.local/pilot:/pilot
+      - ./tests:/app/tests:ro
+    read_only: true
+    tmpfs:
+      - /tmp

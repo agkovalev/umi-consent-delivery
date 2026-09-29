@@ -1,0 +1,8 @@
+node_modules/
+.pnpm-store/
+build/
+.local/
+*.pem
+*.sqlite*
+.DS_Store
+*.log
